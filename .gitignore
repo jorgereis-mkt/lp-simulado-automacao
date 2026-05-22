@@ -1,0 +1,35 @@
+# Environment
+.env
+.env.local
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.venv/
+venv/
+env/
+ENV/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Test artifacts
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Cartões de teste com dados sensíveis (manter local)
+tests/cards_exemplo/*.json
