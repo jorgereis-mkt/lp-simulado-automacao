@@ -33,3 +33,6 @@ htmlcov/
 
 # Cartões de teste com dados sensíveis (manter local)
 tests/cards_exemplo/*.json
+
+# Templates de LP baixados do WP (manter local)
+tests/lp_templates/
