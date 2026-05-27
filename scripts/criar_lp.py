@@ -17,9 +17,27 @@ from src.lp_creator import build_lp_payload
 if sys.platform == "win32":
     sys.stdout.reconfigure(encoding="utf-8")
 
-CARDS_DIR = Path(__file__).resolve().parents[1] / "tests" / "cards_exemplo"
-TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "tests" / "lp_templates"
+ROOT = Path(__file__).resolve().parents[1]
+CARDS_DIR = ROOT / "tests" / "cards_exemplo"
+TEMPLATES_DIR = ROOT / "tests" / "lp_templates"
 TEMPLATE_SLUG = "simulado-final-mp-al-tecnico-do-ministerio-publico-pos-edital"
+DEFAULT_BG_URL_CACHE = ROOT / "assets" / "backgrounds" / "_default" / "wp_url.txt"
+
+
+def load_default_bg_url() -> str | None:
+    if not DEFAULT_BG_URL_CACHE.exists():
+        return None
+    url = DEFAULT_BG_URL_CACHE.read_text(encoding="utf-8").strip()
+    return url if url.startswith("http") else None
+
+
+def get_bg_url_para_orgao(orgao_slug: str | None) -> tuple[str | None, str]:
+    """Decide qual BG usar pra um orgao. Retorna (url, fonte)."""
+    # MVP: nenhum orgao tem BG especifico ainda; sempre cai no default
+    default = load_default_bg_url()
+    if default:
+        return default, "default-neutro"
+    return None, "none"
 
 
 def main() -> None:
@@ -30,6 +48,13 @@ def main() -> None:
 
     card_key = sys.argv[1]
     do_commit = "--commit" in sys.argv
+    slug_prefix = ""
+    update_id: int | None = None
+    for arg in sys.argv[2:]:
+        if arg.startswith("--slug-prefix="):
+            slug_prefix = arg.split("=", 1)[1]
+        elif arg.startswith("--update-id="):
+            update_id = int(arg.split("=", 1)[1])
 
     card_path = CARDS_DIR / f"{card_key}.json"
     template_path = TEMPLATES_DIR / f"{TEMPLATE_SLUG}.html"
@@ -48,8 +73,13 @@ def main() -> None:
         print(f"Card {card_key} eh CARD MATRIZ. Nao tem dados pra LP individual.")
         sys.exit(1)
 
-    payload = build_lp_payload(card, briefing, template_raw)
+    bg_url, bg_fonte = get_bg_url_para_orgao(None)  # MVP: sempre default
+    payload = build_lp_payload(card, briefing, template_raw, bg_url=bg_url)
     intern = payload.pop("_internals")
+
+    if slug_prefix:
+        payload["slug"] = f"{slug_prefix}{payload['slug']}"
+        payload["title"] = f"[TESTE] {payload['title']}"
 
     print(f"\n=== Briefing parseado de {card_key} ===")
     print(f"  titulo_evento     : {briefing.get('titulo_evento')}")
@@ -63,6 +93,7 @@ def main() -> None:
     print(f"  data ISO          : {intern['date_iso']}")
     print(f"  texto data        : 'dia {intern['dia']:02d} de {intern['mes_nome']}, ... as {intern['hora_aplic']:02d}:00 ... as {intern['hora_corr']:02d}:00'")
     print(f"  area form         : '{intern['area']}'")
+    print(f"  bg_url            : {intern.get('bg_url') or '(nenhum — mantem do template)'}  [fonte: {bg_fonte}]")
 
     print(f"\n=== Payload da pagina ===")
     print(f"  title  : {payload['title']}")
@@ -75,17 +106,20 @@ def main() -> None:
         print("\n[DRY-RUN] Nao foi enviado pro WP. Use --commit pra criar como rascunho.")
         return
 
-    print("\nVerificando se slug ja existe no WP...")
-    existing = wp_client.get("pages", params={"slug": payload["slug"], "status": "any"})
-    if existing:
-        e = existing[0]
-        print(f"AVISO: ja existe pagina com slug={payload['slug']}:")
-        print(f"  ID={e.get('id')}  status={e.get('status')}  link={e.get('link')}")
-        print("Abortando para nao sobrescrever. Renomeie o slug ou use outra estrategia.")
-        sys.exit(2)
-
-    print("Slug livre. Criando pagina no WP (RASCUNHO)...")
-    result = wp_client.post("pages", data=payload)
+    if update_id:
+        print(f"\nAtualizando pagina existente {update_id} via PUT...")
+        result = wp_client.put("pages", update_id, payload)
+    else:
+        print("\nVerificando se slug ja existe no WP...")
+        existing = wp_client.get("pages", params={"slug": payload["slug"], "status": "any"})
+        if existing:
+            e = existing[0]
+            print(f"AVISO: ja existe pagina com slug={payload['slug']}:")
+            print(f"  ID={e.get('id')}  status={e.get('status')}  link={e.get('link')}")
+            print("Abortando para nao sobrescrever. Use --update-id=<ID> para atualizar.")
+            sys.exit(2)
+        print("Slug livre. Criando pagina no WP (RASCUNHO)...")
+        result = wp_client.post("pages", data=payload)
     print(f"\n=== Pagina criada ===")
     print(f"  ID    : {result.get('id')}")
     print(f"  Status: {result.get('status')}")

@@ -34,6 +34,33 @@ def put(endpoint, item_id, data):
     return r.json()
 
 
+def delete(endpoint, item_id, force=False):
+    params = {"force": "true"} if force else None
+    r = requests.delete(
+        f"{WP_URL}/wp-json/wp/v2/{endpoint}/{item_id}",
+        headers={"Authorization": HEADERS["Authorization"]},
+        params=params,
+    )
+    r.raise_for_status()
+    return r.json()
+
+
+def upload_media(file_path, mime_type="image/webp", filename=None):
+    """Faz POST /media com bytes binarios. Retorna o dict do attachment criado."""
+    if filename is None:
+        filename = os.path.basename(file_path)
+    with open(file_path, "rb") as fh:
+        data = fh.read()
+    headers = {
+        "Authorization": HEADERS["Authorization"],
+        "Content-Type": mime_type,
+        "Content-Disposition": f'attachment; filename="{filename}"',
+    }
+    r = requests.post(f"{WP_URL}/wp-json/wp/v2/media", headers=headers, data=data, timeout=60)
+    r.raise_for_status()
+    return r.json()
+
+
 if __name__ == "__main__":
     me = get("users/me")
     print(f"Conectado como: {me['name']} (ID {me['id']})")

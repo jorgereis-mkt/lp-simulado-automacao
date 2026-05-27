@@ -86,8 +86,14 @@ def render_lp_content(
     hora_aplic: int,
     hora_corr: int,
     area: str,
+    bg_url: str | None = None,
 ) -> str:
-    """Substitui variaveis do template MP-AL pra construir o content da LP nova."""
+    """Substitui variaveis do template MP-AL pra construir o content da LP nova.
+
+    Se bg_url for fornecido, substitui o background_image do template (que e
+    especifico do concurso de origem do template) — IMPORTANTE pra nao reusar
+    imagem de outro concurso (ver feedback-lp-bg-nunca-outro-concurso).
+    """
     out = template_raw
 
     out = re.sub(r"<h1>MP AL</h1>", f"<h1>{concurso}</h1>", out)
@@ -113,10 +119,17 @@ def render_lp_content(
 
     out = re.sub(r'\barea="Tribunais"', f'area="{area}"', out)
 
+    if bg_url:
+        out = re.sub(
+            r'background_image="[^"]+BACKGROUND-MP-AL-LP\.webp"',
+            f'background_image="{bg_url}"',
+            out,
+        )
+
     return out
 
 
-def build_lp_payload(card: dict, briefing: dict, template_raw: str) -> dict:
+def build_lp_payload(card: dict, briefing: dict, template_raw: str, bg_url: str | None = None) -> dict:
     titulo = briefing.get("titulo_evento") or ""
     concurso, cargo = split_titulo(titulo)
     date_iso, hora_aplic, hora_corr = parse_data_hora(briefing.get("data_hora_evento"))
@@ -136,6 +149,7 @@ def build_lp_payload(card: dict, briefing: dict, template_raw: str) -> dict:
         hora_aplic=hora_aplic,
         hora_corr=hora_corr,
         area=area,
+        bg_url=bg_url,
     )
 
     slug = slugify(titulo)
@@ -155,5 +169,6 @@ def build_lp_payload(card: dict, briefing: dict, template_raw: str) -> dict:
             "hora_aplic": hora_aplic,
             "hora_corr": hora_corr,
             "area": area,
+            "bg_url": bg_url,
         },
     }
