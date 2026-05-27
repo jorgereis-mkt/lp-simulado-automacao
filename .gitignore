@@ -32,7 +32,6 @@ Thumbs.db
 htmlcov/
 
 # Cartões de teste com dados sensíveis (manter local)
-tests/cards_exemplo/*.json
+tests/cards_exemplo/
 
-# Templates de LP baixados do WP (manter local)
-tests/lp_templates/
+# OBS: tests/lp_templates/ É necessário em runtime pelo rodar.py — NÃO ignorar.

@@ -1,0 +1,10 @@
+run = "pip install -r requirements.txt && python web.py"
+language = "python3"
+entrypoint = "web.py"
+
+[nix]
+channel = "stable-23_11"
+
+[deployment]
+run = ["sh", "-c", "python web.py"]
+deploymentTarget = "cloudrun"
