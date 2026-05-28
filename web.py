@@ -14,12 +14,27 @@ from __future__ import annotations
 
 import os
 import subprocess
+import traceback
 from pathlib import Path
 
+from dotenv import load_dotenv
 from flask import Flask, jsonify, request
+
+load_dotenv()
 
 app = Flask(__name__)
 REPO = Path(__file__).resolve().parent
+
+
+@app.errorhandler(Exception)
+def handle_uncaught(exc):
+    app.logger.exception("unhandled error")
+    return jsonify({
+        "error": "internal error",
+        "type": type(exc).__name__,
+        "repr": repr(exc),
+        "trace": traceback.format_exc(),
+    }), 500
 
 
 @app.get("/healthz")
@@ -27,7 +42,12 @@ def healthz():
     return {"ok": True, "service": "lp-simulado-automacao"}
 
 
-@app.post("/processar-card")
+@app.route("/ping-post", methods=["POST"])
+def ping_post():
+    return {"pong": True}
+
+
+@app.route("/processar-card", methods=["POST"])
 def processar_card():
     secret = os.environ.get("WEBHOOK_SECRET")
     if not secret:
@@ -46,10 +66,18 @@ def processar_card():
 
     try:
         result = subprocess.run(
-            args, cwd=str(REPO), capture_output=True, text=True, timeout=180
+            args,
+            cwd=str(REPO),
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=180,
         )
     except subprocess.TimeoutExpired:
         return jsonify({"error": "pipeline timed out (180s)"}), 504
+    except Exception as exc:
+        return jsonify({"error": f"subprocess exception: {exc!r}"}), 500
 
     payload = {
         "ok": result.returncode == 0,
